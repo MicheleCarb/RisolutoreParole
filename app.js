@@ -1,4 +1,5 @@
 // app.js
+
 let history = [];
 let currentRow = Array(5).fill(null).map((_, i) => ({
     letter: '',
@@ -461,6 +462,35 @@ function reverse_finder(result, guess, parole_possibili) {
     // Ritorna solo le parole ordinate
     return parole_filtrate.map(entry => entry.word);
 }
+
+function findWord(letters, wordList) {
+    return wordList.filter(word => [...letters].every(letter => word.includes(letter)));
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+    const inputField = document.querySelector("#wordInputFind");
+    const resultsDiv = document.querySelector("#resultsFind");
+    const resolveButton = document.querySelector("#resolveButtonFind");
+
+    resolveButton.addEventListener("click", function () {
+        if (!inputField) {
+            console.error("Elemento input non trovato!");
+            return;
+        }
+
+        const letters = inputField.value.trim();
+        if (letters.length === 0) {
+            resultsDiv.innerHTML = "<p>Inserisci almeno una lettera.</p>";
+            return;
+        }
+
+        const foundWords = findWord(letters, WORD_LIST);
+        resultsDiv.innerHTML = foundWords.length > 0 
+            ? "<ul>" + foundWords.map(word => `<li>${word}</li>`).join("") + "</ul>"
+            : "<p>Nessuna parola trovata.</p>";
+    });
+});
+
 
 // Inizializzazione
 createRows();
