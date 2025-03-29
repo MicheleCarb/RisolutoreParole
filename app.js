@@ -1,496 +1,392 @@
-// app.js
+// Constants
+const STATUS_ORDER = ['gray', 'yellow', 'green'];
+const WORD_LENGTH = 5;
 
-let history = [];
-let currentRow = Array(5).fill(null).map((_, i) => ({
+// State
+const state = {
+  history: [],
+  currentRow: Array(WORD_LENGTH).fill().map((_, i) => ({
     letter: '',
     status: 'gray',
     position: i
-}));
-let gameWon = false;
+  })),
+  gameWon: false,
+  suggestions: {
+    best: [],
+    reverse: []
+  }
+};
+
+// DOM Elements
+const elements = {
+  wordInput: document.getElementById('wordInput'),
+  results: document.getElementById('results'),
+  resolveButton: document.getElementById('resolveButton'),
+  refreshButton: document.getElementById('refreshButton'),
+  noSuggestionsMessage: document.getElementById('noSuggestionsMessage')
+};
 
 // ================== UI Functions ================== //
-function createRows() {
-    const container = document.getElementById('wordInput');
-    container.innerHTML = '';
-
-    // Storia
-    history.forEach(entry => {
-        const row = document.createElement('div');
-        row.className = 'history-row';
-        entry.forEach((cell, i) => {
-            const box = document.createElement('div');
-            box.className = `letter-box ${cell.status}`;
-            box.textContent = cell.letter.toUpperCase();
-            row.appendChild(box);
-        });
-        container.appendChild(row);
+const renderGame = () => {
+    elements.wordInput.innerHTML = '';
+  
+    // Render history
+    state.history.forEach(entry => {
+      const row = document.createElement('div');
+      row.className = 'history-row';
+      entry.forEach((cell) => {
+        row.appendChild(createLetterBox(cell, false));
+      });
+      elements.wordInput.appendChild(row);
     });
-
-    // Riga corrente (solo se non vinto)
-    if (!gameWon) {
-        const currentRowDiv = document.createElement('div');
-        currentRowDiv.className = 'current-row';
-        currentRow.forEach((cell, i) => {
-            const box = document.createElement('div');
-            box.className = `letter-box ${cell.status}`;
-            box.contentEditable = true;
-            box.dataset.position = i;
-            box.textContent = cell.letter.toUpperCase();
-            
-            box.addEventListener('input', handleLetterInput);
-            box.addEventListener('click', handleColorCycle);
-            box.addEventListener('keydown', handleKeyDown);
-            
-            currentRowDiv.appendChild(box);
-        });
-        container.appendChild(currentRowDiv);
-        
-        // Focus sulla prima casella se vuota
-        if (currentRow[0].letter === '') {
-            const firstBox = document.querySelector('[data-position="0"]');
-            if (firstBox) {
-                firstBox.focus();
-                placeCaretAtEnd(firstBox);
-            }
+  
+    // Render current row if game not won
+    if (!state.gameWon) {
+      const currentRowDiv = document.createElement('div');
+      currentRowDiv.className = 'current-row';
+      state.currentRow.forEach((cell) => {
+        currentRowDiv.appendChild(createLetterBox(cell, true));
+      });
+      elements.wordInput.appendChild(currentRowDiv);
+  
+      // Set the focus to the first editable box of the current row
+      setTimeout(() => {
+        const firstEditableBox = currentRowDiv.querySelector('.editable');
+        if (firstEditableBox) {
+          firstEditableBox.focus();
+          placeCaretAtEnd(firstEditableBox);  // Ensure caret is at the end of the first box
         }
+      }, 0);
     }
-}
+  };
+  
+  
 
-function placeCaretAtEnd(element) {
+const createLetterBox = (cell, isEditable) => {
+  const box = document.createElement('div');
+  box.className = `letter-box ${cell.status} ${isEditable ? 'editable' : ''}`;
+  box.textContent = cell.letter.toUpperCase();
+  box.dataset.position = cell.position;
+
+  if (isEditable) {
+    box.contentEditable = true;
+    console.log("Listener attivo su:", box.dataset.position);
+    box.addEventListener('input', handleLetterInput);
+    box.addEventListener('click', handleColorCycle);
+    box.addEventListener('keydown', handleKeyDown);
+  }
+
+  return box;
+};
+
+const showVictoryMessage = () => {
+  elements.results.innerHTML = `
+    <div class="victory-message">
+      <h3>🎉 Victory in ${state.history.length} attempts! 🎉</h3>
+      <button class="btn" onclick="resetGame()">Play Again</button>
+    </div>
+  `;
+};
+
+// Helper function to place caret at end of contentEditable element
+const placeCaretAtEnd = (element) => {
     const range = document.createRange();
     const sel = window.getSelection();
     range.selectNodeContents(element);
     range.collapse(false);
     sel.removeAllRanges();
     sel.addRange(range);
-}
+  };
 
-function handleKeyDown(event) {
+const showSuggestions = (possibleWords, bestSuggestions, reverseSuggestions) => {
+  const shownWords = bestSuggestions.slice(0, 3);
+  const remainingWords = bestSuggestions.slice(3);
+  const reverseShown = reverseSuggestions.slice(0, 3);
+  const reverseRemaining = reverseSuggestions.slice(3);
+
+  elements.results.innerHTML = `
+    <div class="suggestions-container">
+      <div class="suggestions">
+        <h3>Best Suggestions (${possibleWords.length}):</h3>
+        <div class="words-grid">
+          ${shownWords.map(w => `<div class="word">${w}</div>`).join('')}
+        </div>
+        ${remainingWords.length > 0 ? `
+          <button id="show-more" class="btn btn-secondary">Show More</button>
+          <div id="more-suggestions" class="words-grid hidden">
+            ${remainingWords.map(w => `<div class="word">${w}</div>`).join('')}
+          </div>
+        ` : ''}
+      </div>
+
+      <div class="reverse-suggestions">
+        <h3>Elimination Words:</h3>
+        <div class="words-grid">
+          ${reverseShown.map(w => `<div class="word">${w}</div>`).join('')}
+        </div>
+        ${reverseRemaining.length > 0 ? `
+          <button id="show-more-reverse" class="btn btn-secondary">Show More</button>
+          <div id="more-reverse-suggestions" class="words-grid hidden">
+            ${reverseRemaining.map(w => `<div class="word">${w}</div>`).join('')}
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  `;
+
+  // Add event listeners for show more buttons
+  document.getElementById('show-more')?.addEventListener('click', () => {
+    document.getElementById('more-suggestions').classList.remove('hidden');
+    document.getElementById('show-more').classList.add('hidden');
+  });
+
+  document.getElementById('show-more-reverse')?.addEventListener('click', () => {
+    document.getElementById('more-reverse-suggestions').classList.remove('hidden');
+    document.getElementById('show-more-reverse').classList.add('hidden');
+  });
+};
+
+// ================== Event Handlers ================== //
+const handleLetterInput = (event) => {
     const box = event.target;
     const pos = parseInt(box.dataset.position);
+    const letter = event.data ? event.data.toLowerCase() : '';
 
+    console.log(box, pos, letter);
+
+    if (letter && /^[a-z]$/.test(letter)) {
+        state.currentRow[pos].letter = letter;
+        box.textContent = letter.toUpperCase();
+
+        // Spostare il focus alla casella successiva se esiste
+        const currentRowDiv = box.closest('.current-row'); // Find the parent row
+        const nextBox = currentRowDiv.querySelector(`[data-position="${pos + 1}"]:not([contenteditable="false"])`); // Ensure focus goes to the next editable box in the current row
+
+        //console.log(nextBox);
+
+        // Se siamo nell'ultima casella, metti il focus alla fine
+        if (pos === WORD_LENGTH - 1) {
+            setTimeout(() => {
+                placeCaretAtEnd(box); // Posiziona il cursore alla fine dell'ultima casella
+            }, 0);
+        } else if (nextBox) {
+            nextBox.focus();
+            setTimeout(() => {
+                placeCaretAtEnd(nextBox); // Posiziona il cursore alla fine della casella successiva
+            }, 0);
+        } else {
+            console.warn("Attenzione: nessuna casella trovata per il focus!");
+        }
+    }
+};
+
+
+
+
+
+const handleColorCycle = (event) => {
+  const box = event.target;
+  const pos = parseInt(box.dataset.position);
+  
+  if (!state.currentRow[pos].letter) return;
+
+  const currentStatus = state.currentRow[pos].status;
+  const newStatus = STATUS_ORDER[(STATUS_ORDER.indexOf(currentStatus) + 1) % STATUS_ORDER.length];
+
+  state.currentRow[pos].status = newStatus;
+  box.className = `letter-box ${newStatus} editable`;
+};
+
+const handleKeyDown = (event) => {
+    const box = event.target;
+    const pos = parseInt(box.dataset.position);
+  
     if (event.key === 'Backspace') {
-        // Se la casella è vuota o il cursore è all'inizio
-        if (box.textContent === '' || isCaretAtStart(box)) {
-            event.preventDefault();
-            if (pos > 0) {
-                const prevBox = document.querySelector(`[data-position="${pos - 1}"]`);
-                if (prevBox) {
-                    prevBox.focus();
-                    placeCaretAtEnd(prevBox);
-                }
-            }
-        }
-    }
-    // Blocca il movimento del cursore con le frecce
-    else if (['ArrowLeft', 'ArrowRight'].includes(event.key)) {
+      if (box.textContent === '' || isCaretAtStart(box)) {
         event.preventDefault();
-    }
-    // Gestione del tasto Enter
-    else if (event.key === 'Enter') {
-        event.preventDefault();  // Impedisce il salto di riga
-
-        // Triggera il click sul tasto "Resolve"
-        const resolveButton = document.getElementById('resolveButton');
-        if (resolveButton) {
-            resolveButton.click();
+        if (pos > 0) {
+          const currentRowDiv = box.closest('.current-row'); // Find the parent row
+          const prevBox = currentRowDiv.querySelector(`[data-position="${pos - 1}"]:not([contenteditable="false"])`);
+          //const nextBox = currentRowDiv.querySelector(`[data-position="${pos + 1}"]:not([contenteditable="false"])`); // Ensure focus goes to the next editable box in the current row
+          if (prevBox) {
+            prevBox.focus();
+            placeCaretAtEnd(prevBox);
+          }
         }
+      }
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      handleSubmit();
     }
-}
-
-
-function isCaretAtStart(element) {
+  };
+  
+  // Helper to check caret position
+  const isCaretAtStart = (element) => {
     const sel = window.getSelection();
     if (sel.rangeCount === 0) return true;
     const range = sel.getRangeAt(0);
     return range.startOffset === 0 && range.endOffset === 0;
+  };
+
+const handleSubmit = () => {
+if (state.gameWon) return;
+
+// Validate current row
+if (state.currentRow.some(cell => !cell.letter)) {
+    alert('Please complete all letters!');
+    return;
 }
 
-function showVictoryMessage() {
-    const resultsDiv = document.getElementById('results');
-    resultsDiv.innerHTML = `
-        <div class="victory-message">
-            🎉 Vittoria in ${history.length} tentativi! 🎉
-            <button onclick="handleRestart()">Rigioca</button>
-        </div>
-    `;
+// Add to history
+state.history.push([...state.currentRow.map(cell => ({ ...cell }))]);
+
+// Check win condition
+if (state.history[state.history.length - 1].every(cell => cell.status === 'green')) {
+    state.gameWon = true;
+    showVictoryMessage();
+    renderGame();
+    return;
 }
 
-function handleRestart() {
-    history = [];
-    currentRow = Array(5).fill(null).map((_, i) => ({
-        letter: '',
-        status: 'gray',
-        position: i
-    }));
-    gameWon = false;
-    createRows();
-    document.getElementById('results').innerHTML = '';
-}
-
-function handleRefresh() {
-    history = [];
-    currentRow = Array(5).fill(null).map((_, i) => ({
-        letter: '',
-        status: 'gray',
-        position: i
-    }));
-    gameWon = false;
-    createRows();
-    document.getElementById('results').innerHTML = '';
-    document.getElementById('noSuggestionsMessage').style.display = 'none'; // Nasconde il messaggio di "Non hai più suggerimenti"
-    document.getElementById('resolveButton').style.display = 'block'; // Mostra di nuovo il tasto "Resolve"
-}
-
-function letterFreq(parole_possibili) {
-    const alphabet = "abcdefghijklmnopqrstuvwxyz";
-    let freq = {};
-
-    // Inizializza l'oggetto delle frequenze
-    for (let c of alphabet) {
-        freq[c] = [0, 0, 0, 0, 0]; // Frequenza per ogni posizione
-    }
-
-    // Calcola la frequenza di ogni lettera nelle 5 posizioni
-    for (let word of parole_possibili) {
-        for (let i = 0; i < word.length; i++) {
-            let letter = word[i];
-            freq[letter][i] += 1;
-        }
-    }
-
-    return freq;
-}
-
-function wordScore(parole_possibili, frequencies) {
-    let scores = {};
-    let max_freq = [0, 0, 0, 0, 0];
-
-    // Trova la frequenza massima per ogni posizione
-    for (let letter in frequencies) {
-        for (let i = 0; i < 5; i++) {
-            max_freq[i] = Math.max(max_freq[i], frequencies[letter][i]);
-        }
-    }
-
-    // Calcola il punteggio di ogni parola
-    for (let word of parole_possibili) {
-        let score = 1;
-
-        for (let i = 0; i < 5; i++) {
-            let letter = word[i];
-            score *= 1 + Math.pow(frequencies[letter][i] - max_freq[i], 2);
-        }
-
-        scores[word] = score;
-    }
-
-    return scores;
-}
-
-function bestWords(parole_possibili, frequencies) {
-    let scores = wordScore(parole_possibili, frequencies);
-    let sorted_words = parole_possibili.sort((a, b) => scores[a] - scores[b]);
-    return sorted_words;
-}
-
-function getSuggestions(parole_possibili, result, guess) {
-    if (!result) {
-        console.error("Errore: result non è definito");
-        return { bestSuggestions: [], reverseSuggestions: [] };
-    }
-
-    const frequencies = letterFreq(parole_possibili);
-    const bestSuggestions = bestWords(parole_possibili, frequencies);
-    const reverseSuggestions = reverse_finder(result, guess, parole_possibili); // Parole reverse
-    return { bestSuggestions, reverseSuggestions };
-}
-
-
-// ================== Game Logic ================== //
-function checkWinCondition() {
-    const lastAttempt = history[history.length - 1];
-    return lastAttempt?.every(cell => cell.status === 'green');
-}
-
-// ================== Main Handler ================== //
-
-function handleSubmit() {
-    if (gameWon) return;
-
-    if (currentRow.some(c => !c.letter)) {
-        alert('Completa tutte le caselle!');
-        return;
-    }
-
-    history.push([...currentRow.map(c => ({ ...c }))]);
-
-    // Controlla vittoria
-    if (checkWinCondition()) {
-        gameWon = true;
-        showVictoryMessage();
-        createRows(); // Rimuove la riga corrente
-        return;
-    }
-
-    currentRow.forEach(c => { c.letter = ''; c.status = 'gray' });
-    createRows();
-
-    const lastAttempt = history[history.length - 1] || [];
-    const result = lastAttempt.map(c => c.status);  // Array di stati (es. ["gray", "yellow", "green", "gray", "gray"])
-    const guess = lastAttempt.map(c => c.letter).join('');  // Stringa della parola tentata
-    const possibleWords = filterWords();
-    const { bestSuggestions, reverseSuggestions } = getSuggestions(possibleWords, result, guess);
-    const resultsDiv = document.getElementById('results');
-
-    // Controllo se ci sono suggerimenti
-    if (bestSuggestions.length > 0) {
-        const shownWords = bestSuggestions.slice(0, 3);
-        const remainingWords = bestSuggestions.slice(3);
-
-        const reverseWordsShown = reverseSuggestions.slice(0, 3);
-        const reverseWordsRemaining = reverseSuggestions.slice(3);
-
-        resultsDiv.innerHTML = `
-            <div class="suggestions">
-                <h3>Suggerimenti (${possibleWords.length}):</h3>
-                ${shownWords.map(w => `<div class="word">${w}</div>`).join('')}
-                ${remainingWords.length > 0 ? ` 
-                    <button id="show-more" class="show-more">Mostra altri</button>
-                    <div id="more-suggestions" class="more-suggestions">
-                        ${remainingWords.map(w => `<div class="word">${w}</div>`).join('')}
-                    </div>
-                ` : ''}
-            </div>
-
-            <div class="reverse-words">
-                <h3>Parole Reverse (per eliminare opzioni):</h3>
-                ${reverseWordsShown.map(w => `<div class="word">${w}</div>`).join('')}
-                ${reverseWordsRemaining.length > 0 ? ` 
-                    <button id="show-more-reverse" class="show-more">Mostra altre parole reverse</button>
-                    <div id="more-reverse-suggestions" class="more-suggestions">
-                        ${reverseWordsRemaining.map(w => `<div class="word">${w}</div>`).join('')}
-                    </div>
-                ` : ''}
-            </div>
-        `;
-        
-        // Aggiungi listener per il bottone "Mostra altri"
-        const showMoreButton = document.getElementById('show-more');
-        if (showMoreButton) {
-            showMoreButton.addEventListener('click', () => {
-                document.getElementById('more-suggestions').style.display = 'block';
-                showMoreButton.style.display = 'none';
-            });
-        }
-
-        const showMoreReverseButton = document.getElementById('show-more-reverse');
-        if (showMoreReverseButton) {
-            showMoreReverseButton.addEventListener('click', () => {
-                document.getElementById('more-reverse-suggestions').style.display = 'block';
-                showMoreReverseButton.style.display = 'none';
-            });
-        }
-    } else {
-        resultsDiv.innerHTML = '<p>Nessun suggerimento disponibile.</p>';
-    }
-}
-
-
-
-// Funzione per posizionare il cursore all'inizio
-function placeCaretAtStart(element) {
-    const range = document.createRange();
-    const sel = window.getSelection();
-    range.setStart(element, 0);
-    range.collapse(true);
-    sel.removeAllRanges();
-    sel.addRange(range);
-}
-
-function handleLetterInput(event) {
-    const box = event.target;
-    const pos = parseInt(box.dataset.position);
-    const letter = event.data ? event.data.toLowerCase() : '';
-    
-    if (letter) {
-        box.textContent = letter.toUpperCase();
-        currentRow[pos].letter = letter;
-        
-        // Sposta il focus alla casella successiva solo se non è l'ultima
-        if (pos < 4) {
-            const nextBox = document.querySelector(`[data-position="${pos + 1}"]`);
-            if (nextBox) {
-                nextBox.focus();
-                placeCaretAtEnd(nextBox);
-            }
-        }
-        else {
-            // Per l'ultima casella, mantieni il focus ma posiziona il cursore a destra
-            placeCaretAtEnd(box);
-        }
-    } else {
-        currentRow[pos].letter = '';
-    }
-}
-
-function handleColorCycle(event) {
-    const box = event.target;
-    const pos = parseInt(box.dataset.position);
-    if (!currentRow[pos].letter) return;
-
-    const statusOrder = ['gray', 'yellow', 'green'];
-    const newStatus = statusOrder[(statusOrder.indexOf(currentRow[pos].status) + 1) % 3];
-    currentRow[pos].status = newStatus;
-    box.className = `letter-box ${newStatus} visible-box`;
-}
-
-// ================== Core Logic ================== //
-function filterWords() {
-    return history.reduce((words, entry) => {
-        return words.filter(word => {
-            // 1. Lettere sbagliate
-            const badLetters = entry.filter(c => c.status === 'gray').map(c => c.letter);
-            const goodLetters = entry.filter(c => c.status !== 'gray').map(c => c.letter);
-
-            // 2. Controllo posizioni corrette
-            const correctPositions = entry
-                .filter(c => c.status === 'green')
-                .every(c => word[c.position] === c.letter);
-
-            // 3. Lettere presenti ma in posizione sbagliata
-            const yellowChecks = entry
-                .filter(c => c.status === 'yellow')
-                .every(c => word.includes(c.letter) && word[c.position] !== c.letter);
-
-            return !badLetters.some(b => word.includes(b)) && correctPositions && yellowChecks;
-        });
-    }, WORD_LIST);
-}
-
-function getBestWords(wordList) {
-    if(wordList.length === 0) return [];
-    return wordList.slice(0, 3); // Semplice per esempio
-}
-
-// Funzione per trovare lettere sbagliate
-function badLetters(result, guess) {
-    let bad_letters = [];
-    for (let i = 0; i < 5; i++) {
-        if (result[i] === "s") {
-            bad_letters.push(guess[i]);
-        }
-    }
-    return bad_letters;
-}
-
-// Funzione per trovare lettere parziali
-function partialLetters(result, guess) {
-    let partial_letters = [];
-    for (let i = 0; i < 5; i++) {
-        if (result[i] === "g") {
-            partial_letters.push([guess[i], i]);
-        }
-    }
-    return partial_letters;
-}
-
-// Funzione per trovare lettere completamente corrette
-function correctLetters(result, guess) {
-    let correct_letters = [];
-    for (let i = 0; i < 5; i++) {
-        if (result[i] === "v") {
-            correct_letters.push([guess[i], i]);
-        }
-    }
-    return correct_letters;
-}
-
-function reverseWords(parole_possibili, frequencies) {
-    // Ordina le parole in base alla loro "utilità" nel processo di eliminazione
-    let scores = {};
-
-    parole_possibili.forEach(word => {
-        let score = 0;
-
-        // Incrementa il punteggio per ogni lettera che appare frequentemente in posizioni importanti
-        for (let i = 0; i < word.length; i++) {
-            let letter = word[i];
-            score += frequencies[letter][i]; // Maggiore è la frequenza, maggiore è il punteggio
-        }
-
-        scores[word] = score;
-    });
-
-    // Ordina le parole per punteggio (decrescente)
-    let sortedWords = Object.keys(scores).sort((a, b) => scores[b] - scores[a]);
-
-    return sortedWords;
-}
-
-// Funzione per eliminare parole sbagliate
-function reverse_finder(result, guess, parole_possibili) {
-    let lettere_ricercate = new Set();
-    
-    // Trova le posizioni "gray" e raccogli lettere distinte da parole_possibili
-    for (let i = 0; i < result.length; i++) {
-        if (result[i] === "gray") {
-            parole_possibili.forEach(word => {
-                lettere_ricercate.add(word[i]);
-            });
-        }
-    }
-
-    // Converte in array per manipolazione più semplice
-    lettere_ricercate = Array.from(lettere_ricercate);
-    //console.log(lettere_ricercate)
-    
-    // Filtra parole contenenti il maggior numero di lettere ricercate
-    let parole_filtrate = WORD_LIST.map(word => {
-        let score = 0;
-        lettere_ricercate.forEach(lettera => {
-            if (word.includes(lettera)) {
-                score++;
-            }
-        });
-        return { word, score };
-    });
-
-    // Ordina per numero di lettere ricercate presenti
-    parole_filtrate.sort((a, b) => b.score - a.score);
-    
-    // Ritorna solo le parole ordinate
-    return parole_filtrate.map(entry => entry.word);
-}
-
-function findWord(letters, wordList) {
-    return wordList.filter(word => [...letters].every(letter => word.includes(letter)));
-}
-
-document.addEventListener("DOMContentLoaded", function () {
-    const inputField = document.querySelector("#wordInputFind");
-    const resultsDiv = document.querySelector("#resultsFind");
-    const resolveButton = document.querySelector("#resolveButtonFind");
-
-    resolveButton.addEventListener("click", function () {
-        if (!inputField) {
-            console.error("Elemento input non trovato!");
-            return;
-        }
-
-        const letters = inputField.value.trim();
-        if (letters.length === 0) {
-            resultsDiv.innerHTML = "<p>Inserisci almeno una lettera.</p>";
-            return;
-        }
-
-        const foundWords = findWord(letters, WORD_LIST);
-        resultsDiv.innerHTML = foundWords.length > 0 
-            ? "<ul>" + foundWords.map(word => `<li>${word}</li>`).join("") + "</ul>"
-            : "<p>Nessuna parola trovata.</p>";
-    });
+// Reset current row
+state.currentRow.forEach(cell => {
+    cell.letter = '';
+    cell.status = 'gray';
 });
 
+// Get suggestions
+const lastAttempt = state.history[state.history.length - 1];
+const result = lastAttempt.map(cell => cell.status);
+const guess = lastAttempt.map(cell => cell.letter).join('');
 
-// Inizializzazione
-createRows();
+const possibleWords = filterWords();
+
+if (possibleWords.length === 0) {
+    elements.noSuggestionsMessage.style.display = 'block';
+    elements.resolveButton.style.display = 'none';
+    return;
+}
+
+const bestSuggestions = getBestSuggestions(possibleWords);
+const reverseSuggestions = getReverseSuggestions(result, guess, possibleWords);
+
+showSuggestions(possibleWords, bestSuggestions, reverseSuggestions);
+
+// Render the game (updating the UI)
+renderGame();
+
+// Set the focus to the first editable box of the new row
+setTimeout(() => {
+    const firstBox = document.querySelector('.editable');
+    if (firstBox) {
+    firstBox.focus();
+    placeCaretAtEnd(firstBox);  // Ensure caret is at the end of the first box
+    }
+}, 0);
+};
+  
+  
+const resetGame = () => {
+  state.history = [];
+  state.currentRow = Array(WORD_LENGTH).fill().map((_, i) => ({
+    letter: '',
+    status: 'gray',
+    position: i
+  }));
+  state.gameWon = false;
+  elements.results.innerHTML = '';
+  elements.noSuggestionsMessage.style.display = 'none';
+  elements.resolveButton.style.display = 'block';
+  renderGame();
+};
+
+// ================== Core Logic ================== //
+const filterWords = () => {
+  return state.history.reduce((words, entry) => {
+    return words.filter(word => {
+      const badLetters = entry.filter(c => c.status === 'gray').map(c => c.letter);
+      const hasBadLetters = badLetters.some(b => word.includes(b));
+      
+      const correctPositions = entry
+        .filter(c => c.status === 'green')
+        .every(c => word[c.position] === c.letter);
+      
+      const yellowChecks = entry
+        .filter(c => c.status === 'yellow')
+        .every(c => word.includes(c.letter) && word[c.position] !== c.letter);
+      
+      return !hasBadLetters && correctPositions && yellowChecks;
+    });
+  }, WORD_LIST);
+};
+
+const getBestSuggestions = (possibleWords) => {
+  const frequencies = calculateLetterFrequencies(possibleWords);
+  return possibleWords.sort((a, b) => calculateWordScore(b, frequencies) - calculateWordScore(a, frequencies));
+};
+
+const getReverseSuggestions = (result, guess, possibleWords) => {
+  const lettersToCheck = new Set();
+  
+  result.forEach((status, i) => {
+    if (status === 'gray') {
+      possibleWords.forEach(word => lettersToCheck.add(word[i]));
+    }
+  });
+
+  return WORD_LIST
+    .map(word => ({
+      word,
+      score: Array.from(lettersToCheck).filter(letter => word.includes(letter)).length
+    }))
+    .sort((a, b) => b.score - a.score)
+    .map(entry => entry.word);
+};
+
+const calculateLetterFrequencies = (words) => {
+  const frequencies = {};
+  
+  // Initialize frequencies
+  'abcdefghijklmnopqrstuvwxyz'.split('').forEach(c => {
+    frequencies[c] = Array(WORD_LENGTH).fill(0);
+  });
+
+  // Calculate frequencies
+  words.forEach(word => {
+    word.split('').forEach((letter, i) => {
+      frequencies[letter][i]++;
+    });
+  });
+
+  return frequencies;
+};
+
+const calculateWordScore = (word, frequencies) => {
+  return word.split('').reduce((score, letter, i) => {
+    return score + frequencies[letter][i];
+  }, 0);
+};
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+  renderGame();
+  
+  // Search functionality
+  document.getElementById('resolveButtonFind').addEventListener('click', () => {
+    const letters = document.getElementById('wordInputFind').value.trim().toLowerCase();
+    const resultsDiv = document.getElementById('resultsFind');
+    
+    if (!letters) {
+      resultsDiv.innerHTML = '<p>Please enter some letters</p>';
+      return;
+    }
+    
+    const foundWords = WORD_LIST.filter(word => 
+      letters.split('').every(letter => word.includes(letter))
+    );
+    
+    resultsDiv.innerHTML = foundWords.length 
+      ? `<div class="words-grid">${foundWords.map(w => `<div class="word">${w}</div>`).join('')}</div>`
+      : '<p>No words found</p>';
+  });
+});

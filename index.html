@@ -1,125 +1,227 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Wordle Resolver</title>
-    <style>
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        /* Stile Base */
-        .letter-box {
-            width: 50px;
-            height: 50px;
-            border: 2px solid #333;
-            display: inline-flex;
-            justify-content: center;
-            align-items: center;
-            margin: 4px;
-            font-size: 24px;
-            font-weight: bold;
-            color: white; /* Cambiato da nero a bianco */
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wordle Resolver</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --gray: #6b7280;
+      --light-gray: #f3f4f6;
+      --dark-gray: #374151;
+      --white: #ffffff;
+      --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
 
-        /* Visibilità */
-        .visible-box {
-            color: white;
-        }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-        /* Colori di stato */
-        .gray { background-color: #787c7e; }
-        .yellow { background-color: #c9b458; }
-        .green { background-color: #6aaa64; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--light-gray);
+      color: var(--dark-gray);
+      line-height: 1.6;
+      padding: 20px;
+    }
 
-        /* Layout */
-        #wordInput {
-            margin: 20px 0;
-        }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: var(--white);
+      border-radius: 12px;
+      padding: 32px;
+      box-shadow: var(--shadow);
+    }
 
-        .history-row, .current-row {
-            margin-bottom: 15px;
-        }
+    h1, h2, h3 {
+      color: var(--dark-gray);
+      margin-bottom: 16px;
+    }
 
-        .suggestions {
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 8px;
-        }
+    h1 {
+      font-size: 28px;
+      font-weight: 600;
+      text-align: center;
+    }
 
-        .word {
-            display: inline-block;
-            padding: 8px 12px;
-            margin: 4px;
-            background: #4a90e2;
-            color: white;
-            border-radius: 4px;
-        }
+    .letter-box {
+      width: 52px;
+      height: 52px;
+      border-radius: 8px;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      margin: 4px;
+      font-size: 24px;
+      font-weight: bold;
+      color: var(--white);
+      transition: all 0.2s ease;
+    }
 
-        .victory-message {
-            text-align: center;
-            padding: 20px;
-            background: #6aaa64;
-            color: white;
-            border-radius: 10px;
-            margin: 20px 0;
-        }
+    .editable {
+      cursor: pointer;
+      border: 2px solid var(--gray);
+      color: var(--dark-gray);
+    }
 
-        .victory-message button {
-            margin-top: 15px;
-            padding: 10px 25px;
-            background: white;
-            color: #6aaa64;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: background 0.3s;
-        }
+    .editable:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
 
-        .victory-message button:hover {
-            background: #f0f0f0;
-        }
+    .gray { background-color: var(--gray); }
+    .yellow { background-color: var(--warning); }
+    .green { background-color: var(--success); }
 
-        .suggestions .word {
-            margin: 5px 0;
-        }
+    #wordInput {
+      margin: 24px 0;
+    }
 
-        /* Gli altri suggerimenti sono nascosti inizialmente */
-        .more-suggestions {
-            display: none;
-        }
+    .history-row, .current-row {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 12px;
+    }
 
-        /* Pulsante "Mostra altri" */
-        .show-more {
-            background-color: #007bff;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            cursor: pointer;
-            margin-top: 10px;
-        }
+    .btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: none;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin: 8px 0;
+    }
 
-        .show-more:hover {
-            background-color: #0056b3;
-        }
-    </style>
+    .btn-primary {
+      background-color: var(--primary);
+      color: var(--white);
+    }
+
+    .btn-primary:hover {
+      background-color: #4338ca;
+    }
+
+    .btn-secondary {
+      background-color: var(--light-gray);
+      color: var(--dark-gray);
+    }
+
+    .btn-secondary:hover {
+      background-color: #e5e7eb;
+    }
+
+    .victory-message {
+      text-align: center;
+      padding: 24px;
+      background: var(--success);
+      color: var(--white);
+      border-radius: 12px;
+      margin: 24px 0;
+    }
+
+    .victory-message h3 {
+      color: var(--white);
+      margin-bottom: 12px;
+    }
+
+    .suggestions-container {
+      display: grid;
+      gap: 24px;
+      margin-top: 24px;
+    }
+
+    .words-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+      gap: 8px;
+      margin: 12px 0;
+    }
+
+    .word {
+      padding: 8px 12px;
+      background: var(--primary);
+      color: var(--white);
+      border-radius: 6px;
+      text-align: center;
+      font-weight: 500;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .search-container {
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid #e5e7eb;
+    }
+
+    .search-container input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+
+    .search-container input:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    .no-suggestions {
+      text-align: center;
+      padding: 16px;
+      background: var(--light-gray);
+      border-radius: 8px;
+      margin: 16px 0;
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Risolutore Parole</h1>
-        <div id="wordInput"></div>
-        <button id="resolveButton" onclick="handleSubmit()">Risolvi</button>
-        <div id="results"></div>
-        <div id="noSuggestionsMessage" style="display: none;">
-            <p>Non hai più suggerimenti disponibili.</p>
-            <button id="refreshButton" onclick="handleRefresh()">Ricarica il gioco</button>
-        </div>
-        <h3>Ricerca parole con lettere specifiche</h3>
-        <small>Trova parole contenenti lettere specifiche e scopri rapidamente la parola finale.</small> 
-        <div>
-            <input id="wordInputFind" type="text" placeholder="Inserisci lettere..." />
-            <button id="resolveButtonFind">Cerca</button>
-        </div>
-        <div id="resultsFind"></div>
+  <div class="container">
+    <h1>Risolutore Parole</h1>
+    <p style="text-align: center; margin-bottom: 24px; color: var(--gray);">
+        Inserisci la parola, scegli i colori e guarda i suggerimenti
+    </p>
+    
+    <div id="wordInput"></div>
+    
+    <button id="resolveButton" class="btn btn-primary" onclick="handleSubmit()">
+      Ottieni suggertimenti
+    </button>
+    
+    <div id="results"></div>
+    
+    <div id="noSuggestionsMessage" class="no-suggestions hidden">
+      <p>Non ci sono ulteriori suggerimenti</p>
+      <button id="refreshButton" class="btn btn-secondary" onclick="resetGame()">
+        Start New Game
+      </button>
     </div>
-    <script src="app.js"></script>
-    <script src="words.js"></script>
+    
+    <div class="search-container">
+      <h3>Trova parole</h3>
+      <p style="margin-bottom: 12px; color: var(--gray);">
+        Trova parole contenenti lettere specifiche
+      </p>
+      <input id="wordInputFind" type="text" placeholder="Inserisci lettere...">
+      <button id="resolveButtonFind" class="btn btn-secondary">
+        Cerca
+      </button>
+      <div id="resultsFind"></div>
+    </div>
+  </div>
+  
+  <script src="words.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
