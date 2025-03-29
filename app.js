@@ -67,7 +67,7 @@ function placeCaretAtEnd(element) {
 function handleKeyDown(event) {
     const box = event.target;
     const pos = parseInt(box.dataset.position);
-    
+
     if (event.key === 'Backspace') {
         // Se la casella è vuota o il cursore è all'inizio
         if (box.textContent === '' || isCaretAtStart(box)) {
@@ -81,11 +81,22 @@ function handleKeyDown(event) {
             }
         }
     }
-    // Blocca il movimento del cursore con frecce
+    // Blocca il movimento del cursore con le frecce
     else if (['ArrowLeft', 'ArrowRight'].includes(event.key)) {
         event.preventDefault();
     }
+    // Gestione del tasto Enter
+    else if (event.key === 'Enter') {
+        event.preventDefault();  // Impedisce il salto di riga
+
+        // Triggera il click sul tasto "Resolve"
+        const resolveButton = document.getElementById('resolveButton');
+        if (resolveButton) {
+            resolveButton.click();
+        }
+    }
 }
+
 
 function isCaretAtStart(element) {
     const sel = window.getSelection();
