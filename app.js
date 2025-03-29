@@ -141,6 +141,74 @@ function handleRefresh() {
     document.getElementById('resolveButton').style.display = 'block'; // Mostra di nuovo il tasto "Resolve"
 }
 
+function letterFreq(parole_possibili) {
+    const alphabet = "abcdefghijklmnopqrstuvwxyz";
+    let freq = {};
+
+    // Inizializza l'oggetto delle frequenze
+    for (let c of alphabet) {
+        freq[c] = [0, 0, 0, 0, 0]; // Frequenza per ogni posizione
+    }
+
+    // Calcola la frequenza di ogni lettera nelle 5 posizioni
+    for (let word of parole_possibili) {
+        for (let i = 0; i < word.length; i++) {
+            let letter = word[i];
+            freq[letter][i] += 1;
+        }
+    }
+
+    return freq;
+}
+
+function wordScore(parole_possibili, frequencies) {
+    let scores = {};
+    let max_freq = [0, 0, 0, 0, 0];
+
+    // Trova la frequenza massima per ogni posizione
+    for (let letter in frequencies) {
+        for (let i = 0; i < 5; i++) {
+            max_freq[i] = Math.max(max_freq[i], frequencies[letter][i]);
+        }
+    }
+
+    // Calcola il punteggio di ogni parola
+    for (let word of parole_possibili) {
+        let score = 1;
+
+        for (let i = 0; i < 5; i++) {
+            let letter = word[i];
+            score *= 1 + Math.pow(frequencies[letter][i] - max_freq[i], 2);
+        }
+
+        scores[word] = score;
+    }
+
+    return scores;
+}
+
+function bestWords(parole_possibili, frequencies) {
+    let scores = wordScore(parole_possibili, frequencies);
+
+    // Ordina le parole in base al punteggio crescente
+    let sortedWords = Object.keys(scores).sort((a, b) => scores[a] - scores[b]);
+
+    // Restituisce le prime 3 parole
+    return sortedWords;
+}
+
+function getSuggestions(parole_possibili) {
+    // Calcola le frequenze delle lettere nelle parole possibili
+    const frequencies = letterFreq(parole_possibili);
+
+    // Trova le 3 parole migliori
+    const bestSuggestions = bestWords(parole_possibili, frequencies);
+
+    // Mostra o restituisci le parole suggerite
+    console.log("Parole suggerite:", bestSuggestions);
+    return bestSuggestions;
+}
+
 
 // ================== Game Logic ================== //
 function checkWinCondition() {
@@ -172,9 +240,10 @@ function handleSubmit() {
     createRows();
 
     const possibleWords = filterWords();
+    const suggestions = getSuggestions(possibleWords)
     const resultsDiv = document.getElementById('results');
-    const shownWords = possibleWords.slice(0, 3); // I primi 3 suggerimenti
-    const remainingWords = possibleWords.slice(3); // Resto dei suggerimenti
+    const shownWords = suggestions.slice(0, 3); // I primi 3 suggerimenti
+    const remainingWords = suggestions.slice(3); // Resto dei suggerimenti
 
     resultsDiv.innerHTML = `
         <div class="suggestions">
