@@ -153,12 +153,12 @@ function checkWinCondition() {
 function handleSubmit() {
     if (gameWon) return;
 
-    if (currentRow.some(c => !c.letter)) {
+    if(currentRow.some(c => !c.letter)) {
         alert('Completa tutte le caselle!');
         return;
     }
 
-    history.push([...currentRow.map(c => ({ ...c }))]);
+    history.push([...currentRow.map(c => ({...c}))]);
 
     // Controlla vittoria
     if (checkWinCondition()) {
@@ -173,24 +173,33 @@ function handleSubmit() {
 
     const possibleWords = filterWords();
     const resultsDiv = document.getElementById('results');
-    const resolveButton = document.getElementById('resolveButton'); // Aggiungi questa linea per prendere il tasto
-    const noSuggestionsMessage = document.getElementById('noSuggestionsMessage');
-    
-    if (possibleWords.length === 0) {
-        resolveButton.style.display = 'none'; // Nasconde il tasto se non ci sono suggerimenti
-        noSuggestionsMessage.style.display = 'block'; // Mostra il messaggio "Non hai più suggerimenti"
-    } else {
-        resolveButton.style.display = 'block'; // Mostra il tasto se ci sono suggerimenti
-        noSuggestionsMessage.style.display = 'none'; // Nasconde il messaggio
-    }
+    const shownWords = possibleWords.slice(0, 3); // I primi 3 suggerimenti
+    const remainingWords = possibleWords.slice(3); // Resto dei suggerimenti
 
     resultsDiv.innerHTML = `
         <div class="suggestions">
             <h3>Suggerimenti (${possibleWords.length}):</h3>
-            ${possibleWords.slice(0, 3).map(w => `<div class="word">${w}</div>`).join('')}
+            ${shownWords.map(w => `<div class="word">${w}</div>`).join('')}
+            ${remainingWords.length > 0 ? `
+                <button id="show-more" class="show-more">Mostra altri</button>
+                <div id="more-suggestions" class="more-suggestions">
+                    ${remainingWords.map(w => `<div class="word">${w}</div>`).join('')}
+                </div>
+            ` : ''}
         </div>
     `;
+
+    // Aggiungi l'evento per "Mostra altri"
+    if (remainingWords.length > 0) {
+        const showMoreButton = document.getElementById('show-more');
+        showMoreButton.addEventListener('click', () => {
+            const moreSuggestions = document.getElementById('more-suggestions');
+            moreSuggestions.style.display = 'block';  // Mostra gli altri suggerimenti
+            showMoreButton.style.display = 'none';   // Nascondi il pulsante "Mostra altri"
+        });
+    }
 }
+
 
 
 // Funzione per posizionare il cursore all'inizio
