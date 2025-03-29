@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Wordle Resolver</title>
+    <style>
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        /* Stile Base */
+        .letter-box {
+            width: 50px;
+            height: 50px;
+            border: 2px solid #333;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            margin: 4px;
+            font-size: 24px;
+            font-weight: bold;
+            color: white; /* Cambiato da nero a bianco */
+        }
+
+        /* Visibilità */
+        .visible-box {
+            color: white;
+        }
+
+        /* Colori di stato */
+        .gray { background-color: #787c7e; }
+        .yellow { background-color: #c9b458; }
+        .green { background-color: #6aaa64; }
+
+        /* Layout */
+        #wordInput {
+            margin: 20px 0;
+        }
+
+        .history-row, .current-row {
+            margin-bottom: 15px;
+        }
+
+        .suggestions {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .word {
+            display: inline-block;
+            padding: 8px 12px;
+            margin: 4px;
+            background: #4a90e2;
+            color: white;
+            border-radius: 4px;
+        }
+
+        .victory-message {
+            text-align: center;
+            padding: 20px;
+            background: #6aaa64;
+            color: white;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .victory-message button {
+            margin-top: 15px;
+            padding: 10px 25px;
+            background: white;
+            color: #6aaa64;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+
+        .victory-message button:hover {
+            background: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Risolutore Parole</h1>
+        <div id="wordInput"></div>
+        <button id="resolveButton" onclick="handleSubmit()">Risolvi</button>
+        <div id="results"></div>
+        <div id="noSuggestionsMessage" style="display: none;">
+            <p>Non hai più suggerimenti disponibili.</p>
+            <button id="refreshButton" onclick="handleRefresh()">Ricarica il gioco</button>
+        </div>
+    </div>
+    <script src="app.js"></script>
+    <script src="words.js"></script>
+</body>
+</html>
