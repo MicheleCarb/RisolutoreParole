@@ -189,24 +189,20 @@ function wordScore(parole_possibili, frequencies) {
 
 function bestWords(parole_possibili, frequencies) {
     let scores = wordScore(parole_possibili, frequencies);
-
-    // Ordina le parole in base al punteggio crescente
-    let sortedWords = Object.keys(scores).sort((a, b) => scores[a] - scores[b]);
-
-    // Restituisce le prime 3 parole
-    return sortedWords;
+    let sorted_words = parole_possibili.sort((a, b) => scores[a] - scores[b]);
+    return sorted_words;
 }
 
-function getSuggestions(parole_possibili) {
-    // Calcola le frequenze delle lettere nelle parole possibili
+function getSuggestions(parole_possibili, result, guess) {
+    if (!result) {
+        console.error("Errore: result non è definito");
+        return { bestSuggestions: [], reverseSuggestions: [] };
+    }
+
     const frequencies = letterFreq(parole_possibili);
-
-    // Trova le 3 parole migliori
     const bestSuggestions = bestWords(parole_possibili, frequencies);
-
-    // Mostra o restituisci le parole suggerite
-    console.log("Parole suggerite:", bestSuggestions);
-    return bestSuggestions;
+    const reverseSuggestions = reverse_finder(result, guess, parole_possibili); // Parole reverse
+    return { bestSuggestions, reverseSuggestions };
 }
 
 
@@ -221,12 +217,12 @@ function checkWinCondition() {
 function handleSubmit() {
     if (gameWon) return;
 
-    if(currentRow.some(c => !c.letter)) {
+    if (currentRow.some(c => !c.letter)) {
         alert('Completa tutte le caselle!');
         return;
     }
 
-    history.push([...currentRow.map(c => ({...c}))]);
+    history.push([...currentRow.map(c => ({ ...c }))]);
 
     // Controlla vittoria
     if (checkWinCondition()) {
@@ -239,33 +235,63 @@ function handleSubmit() {
     currentRow.forEach(c => { c.letter = ''; c.status = 'gray' });
     createRows();
 
+    const lastAttempt = history[history.length - 1] || [];
+    const result = lastAttempt.map(c => c.status);  // Array di stati (es. ["gray", "yellow", "green", "gray", "gray"])
+    const guess = lastAttempt.map(c => c.letter).join('');  // Stringa della parola tentata
     const possibleWords = filterWords();
-    const suggestions = getSuggestions(possibleWords)
+    const { bestSuggestions, reverseSuggestions } = getSuggestions(possibleWords, result, guess);
     const resultsDiv = document.getElementById('results');
-    const shownWords = suggestions.slice(0, 3); // I primi 3 suggerimenti
-    const remainingWords = suggestions.slice(3); // Resto dei suggerimenti
 
-    resultsDiv.innerHTML = `
-        <div class="suggestions">
-            <h3>Suggerimenti (${possibleWords.length}):</h3>
-            ${shownWords.map(w => `<div class="word">${w}</div>`).join('')}
-            ${remainingWords.length > 0 ? `
-                <button id="show-more" class="show-more">Mostra altri</button>
-                <div id="more-suggestions" class="more-suggestions">
-                    ${remainingWords.map(w => `<div class="word">${w}</div>`).join('')}
-                </div>
-            ` : ''}
-        </div>
-    `;
+    // Controllo se ci sono suggerimenti
+    if (bestSuggestions.length > 0) {
+        const shownWords = bestSuggestions.slice(0, 3);
+        const remainingWords = bestSuggestions.slice(3);
 
-    // Aggiungi l'evento per "Mostra altri"
-    if (remainingWords.length > 0) {
+        const reverseWordsShown = reverseSuggestions.slice(0, 3);
+        const reverseWordsRemaining = reverseSuggestions.slice(3);
+
+        resultsDiv.innerHTML = `
+            <div class="suggestions">
+                <h3>Suggerimenti (${possibleWords.length}):</h3>
+                ${shownWords.map(w => `<div class="word">${w}</div>`).join('')}
+                ${remainingWords.length > 0 ? ` 
+                    <button id="show-more" class="show-more">Mostra altri</button>
+                    <div id="more-suggestions" class="more-suggestions">
+                        ${remainingWords.map(w => `<div class="word">${w}</div>`).join('')}
+                    </div>
+                ` : ''}
+            </div>
+
+            <div class="reverse-words">
+                <h3>Parole Reverse (per eliminare opzioni):</h3>
+                ${reverseWordsShown.map(w => `<div class="word">${w}</div>`).join('')}
+                ${reverseWordsRemaining.length > 0 ? ` 
+                    <button id="show-more-reverse" class="show-more">Mostra altre parole reverse</button>
+                    <div id="more-reverse-suggestions" class="more-suggestions">
+                        ${reverseWordsRemaining.map(w => `<div class="word">${w}</div>`).join('')}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+        
+        // Aggiungi listener per il bottone "Mostra altri"
         const showMoreButton = document.getElementById('show-more');
-        showMoreButton.addEventListener('click', () => {
-            const moreSuggestions = document.getElementById('more-suggestions');
-            moreSuggestions.style.display = 'block';  // Mostra gli altri suggerimenti
-            showMoreButton.style.display = 'none';   // Nascondi il pulsante "Mostra altri"
-        });
+        if (showMoreButton) {
+            showMoreButton.addEventListener('click', () => {
+                document.getElementById('more-suggestions').style.display = 'block';
+                showMoreButton.style.display = 'none';
+            });
+        }
+
+        const showMoreReverseButton = document.getElementById('show-more-reverse');
+        if (showMoreReverseButton) {
+            showMoreReverseButton.addEventListener('click', () => {
+                document.getElementById('more-reverse-suggestions').style.display = 'block';
+                showMoreReverseButton.style.display = 'none';
+            });
+        }
+    } else {
+        resultsDiv.innerHTML = '<p>Nessun suggerimento disponibile.</p>';
     }
 }
 
@@ -344,6 +370,96 @@ function filterWords() {
 function getBestWords(wordList) {
     if(wordList.length === 0) return [];
     return wordList.slice(0, 3); // Semplice per esempio
+}
+
+// Funzione per trovare lettere sbagliate
+function badLetters(result, guess) {
+    let bad_letters = [];
+    for (let i = 0; i < 5; i++) {
+        if (result[i] === "s") {
+            bad_letters.push(guess[i]);
+        }
+    }
+    return bad_letters;
+}
+
+// Funzione per trovare lettere parziali
+function partialLetters(result, guess) {
+    let partial_letters = [];
+    for (let i = 0; i < 5; i++) {
+        if (result[i] === "g") {
+            partial_letters.push([guess[i], i]);
+        }
+    }
+    return partial_letters;
+}
+
+// Funzione per trovare lettere completamente corrette
+function correctLetters(result, guess) {
+    let correct_letters = [];
+    for (let i = 0; i < 5; i++) {
+        if (result[i] === "v") {
+            correct_letters.push([guess[i], i]);
+        }
+    }
+    return correct_letters;
+}
+
+function reverseWords(parole_possibili, frequencies) {
+    // Ordina le parole in base alla loro "utilità" nel processo di eliminazione
+    let scores = {};
+
+    parole_possibili.forEach(word => {
+        let score = 0;
+
+        // Incrementa il punteggio per ogni lettera che appare frequentemente in posizioni importanti
+        for (let i = 0; i < word.length; i++) {
+            let letter = word[i];
+            score += frequencies[letter][i]; // Maggiore è la frequenza, maggiore è il punteggio
+        }
+
+        scores[word] = score;
+    });
+
+    // Ordina le parole per punteggio (decrescente)
+    let sortedWords = Object.keys(scores).sort((a, b) => scores[b] - scores[a]);
+
+    return sortedWords;
+}
+
+// Funzione per eliminare parole sbagliate
+function reverse_finder(result, guess, parole_possibili) {
+    let lettere_ricercate = new Set();
+    
+    // Trova le posizioni "gray" e raccogli lettere distinte da parole_possibili
+    for (let i = 0; i < result.length; i++) {
+        if (result[i] === "gray") {
+            parole_possibili.forEach(word => {
+                lettere_ricercate.add(word[i]);
+            });
+        }
+    }
+
+    // Converte in array per manipolazione più semplice
+    lettere_ricercate = Array.from(lettere_ricercate);
+    //console.log(lettere_ricercate)
+    
+    // Filtra parole contenenti il maggior numero di lettere ricercate
+    let parole_filtrate = WORD_LIST.map(word => {
+        let score = 0;
+        lettere_ricercate.forEach(lettera => {
+            if (word.includes(lettera)) {
+                score++;
+            }
+        });
+        return { word, score };
+    });
+
+    // Ordina per numero di lettere ricercate presenti
+    parole_filtrate.sort((a, b) => b.score - a.score);
+    
+    // Ritorna solo le parole ordinate
+    return parole_filtrate.map(entry => entry.word);
 }
 
 // Inizializzazione
