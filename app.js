@@ -70,7 +70,7 @@ const createLetterBox = (cell, isEditable) => {
 
   if (isEditable) {
     box.contentEditable = true;
-    console.log("Listener attivo su:", box.dataset.position);
+    //console.log("Listener attivo su:", box.dataset.position);
     box.addEventListener('input', handleLetterInput);
     box.addEventListener('click', handleColorCycle);
     box.addEventListener('keydown', handleKeyDown);
@@ -82,8 +82,8 @@ const createLetterBox = (cell, isEditable) => {
 const showVictoryMessage = () => {
   elements.results.innerHTML = `
     <div class="victory-message">
-      <h3>🎉 Victory in ${state.history.length} attempts! 🎉</h3>
-      <button class="btn" onclick="resetGame()">Play Again</button>
+      <h3>🎉 Vittoria in ${state.history.length} tentativi! 🎉</h3>
+      <button class="btn" onclick="resetGame()">Gioca ancora</button>
     </div>
   `;
 };
@@ -107,7 +107,7 @@ const showSuggestions = (possibleWords, bestSuggestions, reverseSuggestions) => 
   elements.results.innerHTML = `
     <div class="suggestions-container">
       <div class="suggestions">
-        <h3>Best Suggestions (${possibleWords.length}):</h3>
+        <h3>Migliori suggerimenti (${possibleWords.length}):</h3>
         <div class="words-grid">
           ${shownWords.map(w => `<div class="word">${w}</div>`).join('')}
         </div>
@@ -120,7 +120,7 @@ const showSuggestions = (possibleWords, bestSuggestions, reverseSuggestions) => 
       </div>
 
       <div class="reverse-suggestions">
-        <h3>Elimination Words:</h3>
+        <h3>Parole per escludere più soluzioni:</h3>
         <div class="words-grid">
           ${reverseShown.map(w => `<div class="word">${w}</div>`).join('')}
         </div>
@@ -152,7 +152,7 @@ const handleLetterInput = (event) => {
     const pos = parseInt(box.dataset.position);
     const letter = event.data ? event.data.toLowerCase() : '';
 
-    console.log(box, pos, letter);
+    //console.log(box, pos, letter);
 
     if (letter && /^[a-z]$/.test(letter)) {
         state.currentRow[pos].letter = letter;
@@ -228,62 +228,53 @@ const handleKeyDown = (event) => {
     return range.startOffset === 0 && range.endOffset === 0;
   };
 
-const handleSubmit = () => {
-if (state.gameWon) return;
-
-// Validate current row
-if (state.currentRow.some(cell => !cell.letter)) {
-    alert('Please complete all letters!');
-    return;
-}
-
-// Add to history
-state.history.push([...state.currentRow.map(cell => ({ ...cell }))]);
-
-// Check win condition
-if (state.history[state.history.length - 1].every(cell => cell.status === 'green')) {
-    state.gameWon = true;
-    showVictoryMessage();
-    renderGame();
-    return;
-}
-
-// Reset current row
-state.currentRow.forEach(cell => {
-    cell.letter = '';
-    cell.status = 'gray';
-});
-
-// Get suggestions
-const lastAttempt = state.history[state.history.length - 1];
-const result = lastAttempt.map(cell => cell.status);
-const guess = lastAttempt.map(cell => cell.letter).join('');
-
-const possibleWords = filterWords();
-
-if (possibleWords.length === 0) {
-    elements.noSuggestionsMessage.style.display = 'block';
-    elements.resolveButton.style.display = 'none';
-    return;
-}
-
-const bestSuggestions = getBestSuggestions(possibleWords);
-const reverseSuggestions = getReverseSuggestions(result, guess, possibleWords);
-
-showSuggestions(possibleWords, bestSuggestions, reverseSuggestions);
-
-// Render the game (updating the UI)
-renderGame();
-
-// Set the focus to the first editable box of the new row
-setTimeout(() => {
-    const firstBox = document.querySelector('.editable');
-    if (firstBox) {
-    firstBox.focus();
-    placeCaretAtEnd(firstBox);  // Ensure caret is at the end of the first box
+  const handleSubmit = () => {
+    if (state.gameWon) return;
+  
+    if (state.currentRow.some(cell => !cell.letter)) {
+      alert("Please complete all letters!");
+      return;
     }
-}, 0);
-};
+  
+    state.history.push([...state.currentRow.map(cell => ({ ...cell }))]);
+  
+    if (state.history[state.history.length - 1].every(cell => cell.status === "green")) {
+      state.gameWon = true;
+      showVictoryMessage();
+      renderGame();
+      return;
+    }
+  
+    state.currentRow.forEach(cell => {
+      cell.letter = "";
+      cell.status = "gray";
+    });
+  
+    const possibleWords = filterWords();
+  
+    if (possibleWords.length === 0) {
+      elements.noSuggestionsMessage.style.display = "block";
+      elements.resolveButton.style.display = "none";
+      return;
+    }
+  
+    const uniqueWords = [...new Set(possibleWords)];
+    const bestSuggestions = getBestSuggestions(uniqueWords);
+    const bestResult = getBestResult(); // Ottenere la migliore parola conosciuta
+    const reverseSuggestions = getReverseSuggestions(bestResult, uniqueWords); // Passiamo bestResult
+  
+    showSuggestions(uniqueWords, bestSuggestions, reverseSuggestions);
+    renderGame();
+  
+    setTimeout(() => {
+      const firstBox = document.querySelector(".editable");
+      if (firstBox) {
+        firstBox.focus();
+        placeCaretAtEnd(firstBox);
+      }
+    }, 0);
+  };
+  
   
   
 const resetGame = () => {
@@ -304,32 +295,55 @@ const resetGame = () => {
 const filterWords = () => {
   return state.history.reduce((words, entry) => {
     return words.filter(word => {
-      const badLetters = entry.filter(c => c.status === 'gray').map(c => c.letter);
+      const badLetters = entry
+        .filter(c => c.status === 'gray')
+        .map(c => c.letter)
+        .filter(letter => {
+          // Non escludere una lettera se in qualche parola precedente è stata "verde" o "gialla"
+          const wasGreenOrYellow = state.history.some(prevEntry =>
+            prevEntry.some(prevCell => prevCell.letter === letter && prevCell.status !== 'gray')
+          );
+          return !wasGreenOrYellow;
+        });
       const hasBadLetters = badLetters.some(b => word.includes(b));
-      
+
       const correctPositions = entry
         .filter(c => c.status === 'green')
         .every(c => word[c.position] === c.letter);
-      
+
       const yellowChecks = entry
         .filter(c => c.status === 'yellow')
         .every(c => word.includes(c.letter) && word[c.position] !== c.letter);
-      
-      return !hasBadLetters && correctPositions && yellowChecks;
+
+      const isValid = !hasBadLetters && correctPositions && yellowChecks;
+
+      /*
+      if (!isValid) {
+        console.log(`Escludo parola: ${word}, motivo:`);
+        if (hasBadLetters) console.log(` - Contiene lettere escluse: ${badLetters.join(', ')}`);
+        if (!correctPositions) console.log(` - Non rispetta le lettere verdi`);
+        if (!yellowChecks) console.log(` - Non rispetta le lettere gialle`);
+      }
+      */
+
+      return isValid;
     });
   }, WORD_LIST);
 };
 
+
 const getBestSuggestions = (possibleWords) => {
+
   const frequencies = calculateLetterFrequencies(possibleWords);
   return possibleWords.sort((a, b) => calculateWordScore(b, frequencies) - calculateWordScore(a, frequencies));
 };
 
-const getReverseSuggestions = (result, guess, possibleWords) => {
+const getReverseSuggestions = (bestResult, possibleWords) => {
   const lettersToCheck = new Set();
-  
-  result.forEach((status, i) => {
-    if (status === 'gray') {
+
+  console.log(bestResult);
+  bestResult.split("").forEach((char, i) => {
+    if (char === "_") { // Consideriamo solo le posizioni sconosciute
       possibleWords.forEach(word => lettersToCheck.add(word[i]));
     }
   });
@@ -342,6 +356,7 @@ const getReverseSuggestions = (result, guess, possibleWords) => {
     .sort((a, b) => b.score - a.score)
     .map(entry => entry.word);
 };
+
 
 const calculateLetterFrequencies = (words) => {
   const frequencies = {};
@@ -366,6 +381,21 @@ const calculateWordScore = (word, frequencies) => {
     return score + frequencies[letter][i];
   }, 0);
 };
+
+const getBestResult = () => {
+  let bestResult = Array(WORD_LENGTH).fill("_"); // Stringa iniziale con "_"
+
+  state.history.forEach(entry => {
+    entry.forEach((cell, i) => {
+      if (cell.status === "green") {
+        bestResult[i] = cell.letter; // Sovrascrive solo le posizioni conosciute
+      }
+    });
+  });
+
+  return bestResult.join("");
+};
+
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
