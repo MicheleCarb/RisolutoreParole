@@ -366,22 +366,85 @@ const getBestSuggestions = (possibleWords) => {
 
 const getReverseSuggestions = (bestResult, possibleWords) => {
   const lettersToCheck = new Set();
+  const greenPositions = new Map();
+  const grayPositions = new Set();
+  const letterCounts = new Map(); // Conta quante volte ogni lettera è verde
 
-  console.log(bestResult);
+  //console.log("Best Result:", bestResult);
+
+  // Analizza il bestResult per trovare le posizioni grigie e verdi
   bestResult.split("").forEach((char, i) => {
-    if (char === "_") { // Consideriamo solo le posizioni sconosciute
+    if (char === "_") {
       possibleWords.forEach(word => lettersToCheck.add(word[i]));
+      grayPositions.add(i);
+    } else {
+      greenPositions.set(i, char);
+      letterCounts.set(char, (letterCounts.get(char) || 0) + 1);
     }
   });
 
+  //console.log("Lettere da verificare:", Array.from(lettersToCheck).join(", "));
+  //console.log("Posizioni verdi:", greenPositions);
+  //console.log("Posizioni grigie:", Array.from(grayPositions).join(", "));
+
   return WORD_LIST
-    .map(word => ({
-      word,
-      score: Array.from(lettersToCheck).filter(letter => word.includes(letter)).length
-    }))
+    .map(word => {
+      let score = 0;
+      let usedPositions = new Set();
+      let extraLetterCount = new Map(); // Tiene traccia di quante volte ogni lettera appare
+      let debugInfo = [`Parola: ${word}`]; // Per memorizzare i dettagli del punteggio
+
+      // Priorità 1: Contiene le lettere da cercare
+      Array.from(lettersToCheck).forEach(letter => {
+        if (word.includes(letter)) {
+          score += 2;
+          //debugInfo.push(`+2: Contiene la lettera cercata ${letter}`);
+        }
+      });
+
+      // Priorità 2: Evita lettere verdi nelle posizioni grigie
+      let isInvalid = false;
+      greenPositions.forEach((letter, pos) => {
+        if (grayPositions.has(pos) && word[pos] === letter) {
+          isInvalid = true;
+          //debugInfo.push(`- Scartata: La lettera verde ${letter} è in posizione grigia ${pos}`);
+        }
+      });
+
+      // Priorità 3: Posiziona le lettere da cercare nelle posizioni grigie
+      grayPositions.forEach(pos => {
+        if (lettersToCheck.has(word[pos])) {
+          score += 3;
+          usedPositions.add(pos);
+          //debugInfo.push(`+3: La lettera ${word[pos]} è in una posizione grigia utile (${pos})`);
+        }
+      });
+
+      // Priorità 4: Se una lettera è verde in più posizioni, proviamo a metterla altrove
+      greenPositions.forEach((letter, pos) => {
+        const requiredExtra = (letterCounts.get(letter) || 0) + 1;
+        extraLetterCount.set(letter, (extraLetterCount.get(letter) || 0) + (word.split(letter).length - 1));
+
+        if (extraLetterCount.get(letter) >= requiredExtra) {
+          score += 4; // Premiamo parole che ripetono una lettera verde in una nuova posizione
+          //debugInfo.push(`+4: La lettera verde ${letter} è stata posizionata in un'altra posizione`);
+        }
+      });
+
+      if (score === 0 || isInvalid) {
+        return null; // Scartiamo le parole senza punti o non valide
+      }
+
+      //console.log(debugInfo.join("\n"));
+
+      return { word, score };
+    })
+    .filter(entry => entry !== null) // Rimuove parole con punteggio nullo o scartate
     .sort((a, b) => b.score - a.score)
     .map(entry => entry.word);
 };
+
+
 
 
 const calculateLetterFrequencies = (words) => {
