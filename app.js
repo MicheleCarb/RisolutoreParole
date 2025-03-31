@@ -102,7 +102,8 @@ const showSuggestions = (possibleWords, bestSuggestions, reverseSuggestions) => 
   const shownWords = bestSuggestions.slice(0, 3);
   const remainingWords = bestSuggestions.slice(3);
   const reverseShown = reverseSuggestions.slice(0, 3);
-  const reverseRemaining = reverseSuggestions.slice(3);
+  const reverseMore = reverseSuggestions.slice(3, 21);
+  const reverseRemaining = reverseSuggestions.slice(21);
 
   elements.results.innerHTML = `
     <div class="suggestions-container">
@@ -112,25 +113,33 @@ const showSuggestions = (possibleWords, bestSuggestions, reverseSuggestions) => 
           ${shownWords.map(w => `<div class="word">${w}</div>`).join('')}
         </div>
         ${remainingWords.length > 0 ? `
-          <button id="show-more" class="btn btn-secondary">Show More</button>
+          <button id="show-more" class="btn btn-secondary">Show All</button>
           <div id="more-suggestions" class="words-grid hidden">
             ${remainingWords.map(w => `<div class="word">${w}</div>`).join('')}
           </div>
         ` : ''}
       </div>
 
+      ${possibleWords.length >= 3 ? `
       <div class="reverse-suggestions">
         <h3>Parole per escludere più soluzioni:</h3>
         <div class="words-grid">
           ${reverseShown.map(w => `<div class="word">${w}</div>`).join('')}
         </div>
-        ${reverseRemaining.length > 0 ? `
+        ${reverseMore.length > 0 ? `
           <button id="show-more-reverse" class="btn btn-secondary">Show More</button>
           <div id="more-reverse-suggestions" class="words-grid hidden">
-            ${reverseRemaining.map(w => `<div class="word">${w}</div>`).join('')}
+            ${reverseMore.map(w => `<div class="word">${w}</div>`).join('')}
           </div>
+          ${reverseRemaining.length > 0 ? `
+            <button id="show-all-reverse" class="btn btn-secondary hidden">Show All</button>
+            <div id="all-reverse-suggestions" class="words-grid hidden">
+              ${reverseRemaining.map(w => `<div class="word">${w}</div>`).join('')}
+            </div>
+          ` : ''}
         ` : ''}
       </div>
+      ` : ''}
     </div>
   `;
 
@@ -143,6 +152,12 @@ const showSuggestions = (possibleWords, bestSuggestions, reverseSuggestions) => 
   document.getElementById('show-more-reverse')?.addEventListener('click', () => {
     document.getElementById('more-reverse-suggestions').classList.remove('hidden');
     document.getElementById('show-more-reverse').classList.add('hidden');
+    document.getElementById('show-all-reverse').classList.remove('hidden');
+  });
+
+  document.getElementById('show-all-reverse')?.addEventListener('click', () => {
+    document.getElementById('all-reverse-suggestions').classList.remove('hidden');
+    document.getElementById('show-all-reverse').classList.add('hidden');
   });
 };
 
@@ -295,16 +310,25 @@ const resetGame = () => {
 const filterWords = () => {
   return state.history.reduce((words, entry) => {
     return words.filter(word => {
+      // Troviamo tutte le lettere grigie e la loro posizione
+      const invalidPositions = entry
+        .filter(c => c.status === 'gray')
+        .map(c => ({ letter: c.letter, position: c.position }));
+
+      // Controllo per lettere grigie nelle posizioni specifiche
+      const hasInvalidPosition = invalidPositions.some(({ letter, position }) => word[position] === letter);
+
+      // Troviamo lettere grigie che non devono essere escluse perché verdi/gialle in precedenza
       const badLetters = entry
         .filter(c => c.status === 'gray')
         .map(c => c.letter)
         .filter(letter => {
-          // Non escludere una lettera se in qualche parola precedente è stata "verde" o "gialla"
           const wasGreenOrYellow = state.history.some(prevEntry =>
             prevEntry.some(prevCell => prevCell.letter === letter && prevCell.status !== 'gray')
           );
           return !wasGreenOrYellow;
         });
+
       const hasBadLetters = badLetters.some(b => word.includes(b));
 
       const correctPositions = entry
@@ -315,12 +339,13 @@ const filterWords = () => {
         .filter(c => c.status === 'yellow')
         .every(c => word.includes(c.letter) && word[c.position] !== c.letter);
 
-      const isValid = !hasBadLetters && correctPositions && yellowChecks;
+      const isValid = !hasBadLetters && !hasInvalidPosition && correctPositions && yellowChecks;
 
       /*
       if (!isValid) {
         console.log(`Escludo parola: ${word}, motivo:`);
         if (hasBadLetters) console.log(` - Contiene lettere escluse: ${badLetters.join(', ')}`);
+        if (hasInvalidPosition) console.log(` - Contiene una lettera grigia in una posizione vietata: ${invalidPositions.map(ip => `${ip.letter} in posizione ${ip.position}`).join(', ')}`);
         if (!correctPositions) console.log(` - Non rispetta le lettere verdi`);
         if (!yellowChecks) console.log(` - Non rispetta le lettere gialle`);
       }
@@ -330,6 +355,7 @@ const filterWords = () => {
     });
   }, WORD_LIST);
 };
+
 
 
 const getBestSuggestions = (possibleWords) => {
