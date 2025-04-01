@@ -184,19 +184,68 @@
       border-radius: 8px;
       margin: 16px 0;
     }
+
+    #helpDialog {
+      animation: fadeIn 0.3s;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    #helpDialog li {
+      line-height: 1.6;
+    }
+
+    #suggestionsHelp {
+      transition: transform 0.2s;
+    }
+
+    #suggestionsHelp:hover {
+      transform: scale(1.1);
+    }
+
+    #suggestionsHelpDialog li {
+      list-style-type: none;
+      padding-left: 10px;
+    }
+
+    #suggestionsHelpDialog li::before {
+      content: "";
+      margin-left: -20px;
+      margin-right: 10px;
+    }
+
+    .help-icon {
+      transition: transform 0.2s ease;
+    }
+    .help-icon:hover {
+      transform: scale(1.1);
+      opacity: 0.8;
+    }
+    .help-dialog li span:first-child {
+      min-width: 28px; /* Allinea tutte le icone */
+      text-align: center;
+      transition: transform 0.2s;
+    }
+    .help-dialog li:hover span:first-child {
+      transform: scale(1.1);
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Risolutore Parole</h1>
     <p style="text-align: center; margin-bottom: 24px; color: var(--gray);">
-        Inserisci la parola, scegli i colori e guarda i suggerimenti
+      Inserisci la parola, scegli i colori e guarda i suggerimenti
+      <span id="helpIcon" style="cursor: pointer; margin-left: 5px;">❓</span>
     </p>
     
     <div id="wordInput"></div>
     
     <button id="resolveButton" class="btn btn-primary" onclick="handleSubmit()">
-      Ottieni suggertimenti
+      Ottieni suggerimenti
     </button>
     
     <div id="results"></div>
@@ -208,12 +257,56 @@
       </button>
     </div>
     
+    <!-- Dialoghi di aiuto - POSIZIONATI QUI ALLA FINE -->
+    <div id="helpDialog" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 1000; max-width: 400px;">
+      <h3>Come usare questa app</h3>
+      <ul style="list-style: none; padding-left: 0;">
+        <li style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+          <span style="font-size: 1.2em;">✏️</span>
+          <span>Scrivi la parola che hai inserito su Wordle</span>
+        </li>
+        <li style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+          <span style="font-size: 1.2em;">🔄</span>
+          <span>Clicca sulle lettere per cambiarne il colore (grigio, giallo, verde)</span>
+        </li>
+        <li style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+          <span style="font-size: 1.2em;">💡</span>
+          <span>Ottieni suggerimenti :)</span>
+        </li>
+      </ul>
+      <button id="closeHelp" style="padding: 8px 16px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer;">Chiudi</button>
+    </div>
+    <div id="overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 999;"></div>
+    
+    <div id="findHelpDialog" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 1000; max-width: 400px;">
+      <h3>Ricerca avanzata parole</h3>
+      <ul style="list-style: none; padding-left: 0;">
+        <li style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+          <span style="font-size: 1.2em;">🔎</span>
+          <span><strong>Cerca qualsiasi combinazione</strong> di lettere</span>
+        </li>
+        <li style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+          <span style="font-size: 1.2em;">✂️</span>
+          <span><strong>Esempio:</strong> "srt" trova tutte le parole con S, R e T</span>
+        </li>
+        <li style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+          <span style="font-size: 1.2em;">🔄</span>
+          <span>Usalo per <strong>escludere gruppi</strong> di parole in un colpo solo</span>
+        </li>
+      </ul>
+      <button id="closeFindHelp" style="padding: 8px 16px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer;">Ho capito!</button>
+    </div>
+
+    <!-- Sezione di ricerca -->
     <div class="search-container">
-      <h3>Trova parole</h3>
+      <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 8px;">
+        <h3 style="margin: 0;">Trova parole</h3>
+        <span id="findHelpIcon" style="cursor: pointer; font-size: 1em; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; margin-left: 2px;">❓</span>
+      </div>
       <p style="margin-bottom: 12px; color: var(--gray);">
         Trova parole contenenti lettere specifiche
       </p>
-      <input id="wordInputFind" type="text" placeholder="Inserisci lettere...">
+      <input id="wordInputFind" type="text" placeholder="es. 'aei' per parole contenenti A, E, I">
       <button id="resolveButtonFind" class="btn btn-secondary">
         Cerca
       </button>

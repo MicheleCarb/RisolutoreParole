@@ -108,7 +108,10 @@ const showSuggestions = (possibleWords, bestSuggestions, reverseSuggestions) => 
   elements.results.innerHTML = `
     <div class="suggestions-container">
       <div class="suggestions">
-        <h3>Migliori suggerimenti (${possibleWords.length}):</h3>
+        <div style="display: flex; align-items: baseline; gap: 4px; margin-bottom: 8px;">
+          <h3 style="margin: 0;">Migliori suggerimenti (${possibleWords.length}):</h3>
+          <span id="suggestionsHelp" class="help-icon" style=style="cursor: pointer; font-size: 1em; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; margin-left: 2px;">❓</span>
+        </div>
         <div class="words-grid">
           ${shownWords.map(w => `<div class="word">${w}</div>`).join('')}
         </div>
@@ -122,8 +125,11 @@ const showSuggestions = (possibleWords, bestSuggestions, reverseSuggestions) => 
 
       ${possibleWords.length >= 3 ? `
       <div class="reverse-suggestions">
-        <h3>Parole per escludere più soluzioni:</h3>
-        <div class="words-grid">
+      <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 8px;">
+        <h3 style="margin: 0; line-height: 1;">Parole per escludere più soluzioni:</h3>
+        <span id="reverseHelp" class="help-icon" style="cursor: pointer; font-size: 1em; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; margin-left: 2px;">❓</span>
+      </div>
+      <div class="words-grid">
           ${reverseShown.map(w => `<div class="word">${w}</div>`).join('')}
         </div>
         ${reverseMore.length > 0 ? `
@@ -141,7 +147,58 @@ const showSuggestions = (possibleWords, bestSuggestions, reverseSuggestions) => 
       </div>
       ` : ''}
     </div>
+
+    <!-- Help Dialogs -->
+    <div id="suggestionsHelpDialog" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 1000; max-width: 400px;">
+      <h3>Come funzionano i suggerimenti</h3>
+      <ul style="margin: 10px 0 20px 20px;">
+        <li style="margin-bottom: 8px;">🔍 <strong>La prima parola</strong> ha la più alta probabilità di essere quella corretta</li>
+        <li style="margin-bottom: 8px;">📊 Ma tutte le parole elencate sono <strong>possibili soluzioni</strong></li>
+        <li style="margin-bottom: 8px;">🎯 L'ordine si basa su quante lettere in comune hanno con le parole possibili rimanenti</li>
+      </ul>
+      <button id="closeSuggestionsHelp" style="padding: 8px 16px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer;">Ho capito!</button>
+    </div>
+
+    <div id="reverseHelpDialog" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 1000; max-width: 400px;">
+      <h3>Suggerimenti per escludere soluzioni</h3>
+      <ul style="margin: 10px 0 20px 20px;">
+        <li style="margin-bottom: 8px;">🔎 <strong>Queste parole</strong> aiutano a eliminare più possibilità</li>
+        <li style="margin-bottom: 8px;">⚡ Ideali quando ci sono ancora molte opzioni possibili</li>
+        <li style="margin-bottom: 8px;">🎲 Contengono lettere che dividono a metà le parole rimanenti</li>
+        <li style="margin-bottom: 8px;">💡 Utili per fare progressi quando sei lontano dalla soluzione</li>
+      </ul>
+      <button id="closeReverseHelp" style="padding: 8px 16px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer;">Ho capito!</button>
+    </div>
+
+    <div id="helpOverlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 999;"></div>
   `;
+
+  // Event listeners per i dialoghi di aiuto
+  document.getElementById('suggestionsHelp')?.addEventListener('click', () => {
+    document.getElementById('suggestionsHelpDialog').style.display = 'block';
+    document.getElementById('helpOverlay').style.display = 'block';
+  });
+
+  document.getElementById('reverseHelp')?.addEventListener('click', () => {
+    document.getElementById('reverseHelpDialog').style.display = 'block';
+    document.getElementById('helpOverlay').style.display = 'block';
+  });
+
+  document.getElementById('closeSuggestionsHelp')?.addEventListener('click', () => {
+    document.getElementById('suggestionsHelpDialog').style.display = 'none';
+    document.getElementById('helpOverlay').style.display = 'none';
+  });
+
+  document.getElementById('closeReverseHelp')?.addEventListener('click', () => {
+    document.getElementById('reverseHelpDialog').style.display = 'none';
+    document.getElementById('helpOverlay').style.display = 'none';
+  });
+
+  document.getElementById('helpOverlay')?.addEventListener('click', () => {
+    document.getElementById('suggestionsHelpDialog').style.display = 'none';
+    document.getElementById('reverseHelpDialog').style.display = 'none';
+    document.getElementById('helpOverlay').style.display = 'none';
+  });
 
   // Add event listeners for show more buttons
   document.getElementById('show-more')?.addEventListener('click', () => {
@@ -488,6 +545,32 @@ const getBestResult = () => {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
+  // Help dialog functionality
+  document.getElementById('helpIcon')?.addEventListener('click', () => {
+    document.getElementById('helpDialog').style.display = 'block';
+    document.getElementById('overlay').style.display = 'block';
+  });
+
+  document.getElementById('closeHelp')?.addEventListener('click', () => {
+    document.getElementById('helpDialog').style.display = 'none';
+    document.getElementById('overlay').style.display = 'none';
+  });
+
+  // Close dialog when clicking outside
+  document.getElementById('overlay')?.addEventListener('click', () => {
+    document.getElementById('helpDialog').style.display = 'none';
+    document.getElementById('overlay').style.display = 'none';
+  });
+
+  document.getElementById('findHelpIcon')?.addEventListener('click', () => {
+    document.getElementById('findHelpDialog').style.display = 'block';
+    document.getElementById('overlay').style.display = 'block';
+  });
+  
+  document.getElementById('closeFindHelp')?.addEventListener('click', () => {
+    document.getElementById('findHelpDialog').style.display = 'none';
+    document.getElementById('overlay').style.display = 'none';
+  });
   renderGame();
   
   // Search functionality
